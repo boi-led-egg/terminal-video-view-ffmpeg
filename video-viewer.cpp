@@ -1,17 +1,13 @@
 // g++ ffmpeg-video-test.cpp -pedantic -Wall -o ffmpeg-test -lavformat -lavcodec -lavutil #-g
 #include <string>
-#include <chrono>
-#include <iomanip>
 #include <sstream>
-#include <signal.h>
+#include <chrono>
 #include <iostream>
 #include <thread>
-#include <sys/ioctl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
-
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
+#include <sys/ioctl.h>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -19,9 +15,8 @@ extern "C" {
 #include <libavutil/imgutils.h>
 }
 
-constexpr char records_extension[] = ".mp4";
 constexpr int ffmpeg_log_level = AV_LOG_WARNING; // AV_LOG_INFO AV_LOG_DEBUG;
-constexpr int socket_timeout = 10;
+constexpr int socket_timeout = 10; // stream read timeout
 bool keep_running = true; // global for handling ctrl-c
 
 std::string av_error2string(int ffmpeg_error)
@@ -31,9 +26,8 @@ std::string av_error2string(int ffmpeg_error)
     return "Error " + std::to_string(ffmpeg_error) + ": " + std::string(msg);
 }
 
-void signal_handler(int s)
+void signal_handler(int)
 {
-    // printf("Caught signal %d\n", s);
     keep_running = false;
 }
 
@@ -54,7 +48,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "Cannot allocate context\n");
         return -1;
     }
-
+    // TODO: toupper check
     const bool is_stream = (strncmp(url, "rtsp", 4) == 0 || strncmp(url, "http", 4) == 0 ||
                             strncmp(url, "RTSP", 4) == 0 || strncmp(url, "HTTP", 4) == 0);
 
@@ -160,6 +154,7 @@ int main(int argc, char **argv)
         dst_w = floor((float)im_width / im_height * t_height * 2);
         dst_h = t_height * 2;
     }
+    // TODO: re-init sws when terminal resolution has changed
     sws_ctx = sws_getContext(in_context->streams[video_stream]->codecpar->width,
                              in_context->streams[video_stream]->codecpar->height,
                              (AVPixelFormat)in_context->streams[video_stream]->codecpar->format,
@@ -179,21 +174,21 @@ int main(int argc, char **argv)
 
     while (keep_running) {
         int status = 0;
+        // TODO: create reading queue, drop frames when cannot process fast enough
         if ((status = av_read_frame(in_context, av_packet)) >= 0) {
             if (av_packet->stream_index != video_stream) {
                 av_packet_unref(av_packet);
                 continue;
             }
-        }
-        if (status == AVERROR(EAGAIN)) {
+        } else if (status == AVERROR(EAGAIN)) {
             printf("AGAIN frame\n");
             continue;
         } else if (status == AVERROR_EOF) {
             printf("EOF\n");
             break;
-        } else if (status != 0) {
-            printf("other read status %s\n", av_error2string(status).c_str());
-            continue;
+        } else {
+            fprintf(stderr, "Other read status %s\n", av_error2string(status).c_str());
+            break;
         }
         // skip frames before first key frame
         if (!found_key_frame && (av_packet->flags & AV_PKT_FLAG_KEY) == 1) {
@@ -223,6 +218,7 @@ int main(int argc, char **argv)
                           dst_data,
                           dst_linesize);
                 std::stringstream screen;
+                // TODO: explore cursor movement instead of clear screen command
                 screen << "\033[2J\033[1;1H";
                 for (int y = 0; y < dst_h/2; y++) {
                     for (int x = 0; x < dst_w; x++) {
@@ -232,20 +228,21 @@ int main(int argc, char **argv)
                     }
                     screen << std::endl;
                 }
+                // TODO: write video progress
                 screen << "[---------------------------------]";
                 std::cout << screen.str();
                 fflush(stdout);
-
+                // TODO: sleep frame duration - time took to process the frame
                 std::this_thread::sleep_for(std::chrono::milliseconds(30));
             }
         }
         av_packet_unref(av_packet);
         frame_num++;
     }
-
+    // TODO: release sws an others
     av_packet_free(&av_packet);
-
     avformat_close_input(&in_context);
     avformat_free_context(in_context);
+    std::cout << std::endl;
     return 0;
 }
