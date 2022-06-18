@@ -174,10 +174,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "cannot allocate dst image\n");
         exit(1);
     }
-    // clear screen and return to the beginning of the screen
-    std::cout << "\033[2J" << "\033[1;1H";
-    // hide cursor
-    std::cout << "\033[?25l";
+
     while (keep_running) {
         int status = 0;
         // TODO: create reading queue, drop frames when cannot process fast enough
@@ -199,6 +196,10 @@ int main(int argc, char **argv)
         // skip frames before first key frame
         if (!found_key_frame && (av_packet->flags & AV_PKT_FLAG_KEY) == 1) {
             printf("Found key frame\n");
+            // clear scree
+            std::cout << "\033[2J";
+            // hide cursor
+            std::cout << "\033[?25l";
             found_key_frame = true;
         }
 
