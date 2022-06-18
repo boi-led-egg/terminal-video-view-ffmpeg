@@ -1,9 +1,9 @@
-// g++ ffmpeg-video-test.cpp -pedantic -Wall -o ffmpeg-test -lavformat -lavcodec -lavutil #-g
 #include <string>
 #include <sstream>
 #include <chrono>
-#include <iostream>
 #include <thread>
+#include <iostream>
+
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
     sws_ctx = sws_getContext(in_context->streams[video_stream]->codecpar->width,
                              in_context->streams[video_stream]->codecpar->height,
                              (AVPixelFormat)in_context->streams[video_stream]->codecpar->format,
-                             dst_w, dst_h, AV_PIX_FMT_GRAY8,
+                             dst_w, dst_h, AV_PIX_FMT_RGB24,//AV_PIX_FMT_GRAY8,
                              SWS_BILINEAR, NULL, NULL, NULL);
     if (!sws_ctx) {
         fprintf(stderr, "Cannot get sws context\n");
@@ -171,7 +171,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "cannot allocate dst image\n");
         exit(1);
     }
-
+    // clear screen and return to the beginning of the screen
+    std::cout << "\033[2J" << "\033[1;1H";
     while (keep_running) {
         int status = 0;
         // TODO: create reading queue, drop frames when cannot process fast enough
@@ -196,6 +197,7 @@ int main(int argc, char **argv)
             found_key_frame = true;
         }
 
+
         if (found_key_frame) {
             int ret;
             ret = avcodec_send_packet(codecContext, av_packet);
@@ -219,12 +221,23 @@ int main(int argc, char **argv)
                           dst_linesize);
                 std::stringstream screen;
                 // TODO: explore cursor movement instead of clear screen command
-                screen << "\033[2J\033[1;1H";
+                //
+                screen << "\033[0;0H";
                 for (int y = 0; y < dst_h/2; y++) {
                     for (int x = 0; x < dst_w; x++) {
-                        int u = 232 + dst_data[0][(2 * y + 0) * dst_linesize[0] + x] / 16;
-                        int l = 232 + dst_data[0][(2 * y + 1) * dst_linesize[0] + x] / 16;
-                        screen << "\033[38;5;" << u << "m\033[48;5;" << l << "m▀\033[m";
+                        // int u = 232 + dst_data[0][(2 * y + 0) * dst_linesize[0] + x] / 10.7;
+                        // int l = 232 + dst_data[0][(2 * y + 1) * dst_linesize[0] + x] / 10.7;
+                        // screen << "\033[38;5;" << u << "m\033[48;5;" << l << "m▀\033[m";
+
+                        int ur = dst_data[0][(2 * y + 0) * dst_linesize[0] + 3 * x + 0];
+                        int ug = dst_data[0][(2 * y + 0) * dst_linesize[0] + 3 * x + 1];
+                        int ub = dst_data[0][(2 * y + 0) * dst_linesize[0] + 3 * x + 2];
+                        int lr = dst_data[0][(2 * y + 1) * dst_linesize[0] + 3 * x + 0];
+                        int lg = dst_data[0][(2 * y + 1) * dst_linesize[0] + 3 * x + 1];
+                        int lb = dst_data[0][(2 * y + 1) * dst_linesize[0] + 3 * x + 2];
+                        screen << "\033[38;2;" << ur << ";" << ug << ";" << ub << "m"
+                               << "\033[48;2;" << lr << ";" << lg << ";" << lb << "m"
+                               << "▀\033[m";
                     }
                     screen << std::endl;
                 }
