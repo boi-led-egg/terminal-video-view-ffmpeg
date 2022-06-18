@@ -39,6 +39,9 @@ int main(int argc, char **argv)
         exit(1);
     }
     const char* url = argv[1];
+    // TODO: add arguments for colors and resolution
+    // TODO: check terminal type and color
+    // COLORTERM=truecolor, TERM=xterm-256color, LANG=en_US.UTF-8
     // init FFMPEG
     avformat_network_init();
     av_log_set_level(ffmpeg_log_level);
