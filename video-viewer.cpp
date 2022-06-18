@@ -173,6 +173,8 @@ int main(int argc, char **argv)
     }
     // clear screen and return to the beginning of the screen
     std::cout << "\033[2J" << "\033[1;1H";
+    // hide cursor
+    std::cout << "\033[?25l";
     while (keep_running) {
         int status = 0;
         // TODO: create reading queue, drop frames when cannot process fast enough
@@ -220,8 +222,7 @@ int main(int argc, char **argv)
                           dst_data,
                           dst_linesize);
                 std::stringstream screen;
-                // TODO: explore cursor movement instead of clear screen command
-                //
+                // mover cursor to the top left
                 screen << "\033[0;0H";
                 for (int y = 0; y < dst_h/2; y++) {
                     for (int x = 0; x < dst_w; x++) {
@@ -257,5 +258,7 @@ int main(int argc, char **argv)
     avformat_close_input(&in_context);
     avformat_free_context(in_context);
     std::cout << std::endl;
+    // show cursor back
+    std::cout << "\033[?25h";
     return 0;
 }
