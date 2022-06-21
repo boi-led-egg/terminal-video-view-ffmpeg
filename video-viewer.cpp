@@ -176,6 +176,7 @@ int main(int argc, char **argv)
     }
 
     while (keep_running) {
+        auto packet_start = std::chrono::system_clock::now();
         int status = 0;
         // TODO: create reading queue, drop frames when cannot process fast enough
         if ((status = av_read_frame(in_context, av_packet)) >= 0) {
@@ -203,7 +204,6 @@ int main(int argc, char **argv)
             found_key_frame = true;
         }
 
-
         if (found_key_frame) {
             int ret;
             ret = avcodec_send_packet(codecContext, av_packet);
@@ -211,7 +211,9 @@ int main(int argc, char **argv)
                 fprintf(stderr, "Error sending a packet for decoding\n");
                 exit(1);
             }
+            auto packet_end = std::chrono::system_clock::now();
             while (ret >= 0) {
+                auto frame_start = std::chrono::system_clock::now();
                 ret = avcodec_receive_frame(codecContext, frame);
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                     break;
@@ -250,8 +252,14 @@ int main(int argc, char **argv)
                 screen << "[---------------------------------]";
                 std::cout << screen.str();
                 fflush(stdout);
-                // TODO: sleep frame duration - time took to process the frame
-                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
+                auto frame_end = std::chrono::system_clock::now();
+                int sleep_time = frame->pkt_duration
+                    - std::chrono::duration_cast<std::chrono::milliseconds>(frame_end - frame_start).count()
+                    - std::chrono::duration_cast<std::chrono::milliseconds>(packet_end - packet_start).count();
+                if (sleep_time > 0) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
+                }
             }
         }
         av_packet_unref(av_packet);
