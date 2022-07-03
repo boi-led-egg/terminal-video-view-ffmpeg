@@ -197,7 +197,7 @@ int main(int argc, char **argv)
         // skip frames before first key frame
         if (!found_key_frame && (av_packet->flags & AV_PKT_FLAG_KEY) == 1) {
             printf("Found key frame\n");
-            // clear scree
+            // clear screen
             std::cout << "\033[2J";
             // hide cursor
             std::cout << "\033[?25l";
@@ -250,15 +250,24 @@ int main(int argc, char **argv)
                 }
                 // TODO: write video progress
                 screen << "[---------------------------------]";
+                // screen << std::endl;
+                // screen << in_context->duration << " " << in_context->streams[video_stream]->time_base.num << " " <<  in_context->streams[video_stream]->time_base.den;
+                // screen << in_context->duration * in_context->streams[video_stream]->time_base.num / in_context->streams[video_stream]->time_base.den;
+                // screen << std::endl << frame->pkt_duration << std::endl;
+                // screen << in_context->streams[video_stream]->r_frame_rate.num << "/" << in_context->streams[video_stream]->r_frame_rate.den << std::endl;
                 std::cout << screen.str();
                 fflush(stdout);
 
+
                 auto frame_end = std::chrono::system_clock::now();
-                int sleep_time = frame->pkt_duration
-                    - std::chrono::duration_cast<std::chrono::milliseconds>(frame_end - frame_start).count()
-                    - std::chrono::duration_cast<std::chrono::milliseconds>(packet_end - packet_start).count();
+                const int frame_us = 1000000.0
+                    / in_context->streams[video_stream]->r_frame_rate.num
+                    * in_context->streams[video_stream]->r_frame_rate.den;
+                const int sleep_time = frame_us //frame->pkt_duration
+                    - std::chrono::duration_cast<std::chrono::microseconds>(frame_end - frame_start).count()
+                    - std::chrono::duration_cast<std::chrono::microseconds>(packet_end - packet_start).count();
                 if (sleep_time > 0) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
+                    std::this_thread::sleep_for(std::chrono::microseconds(sleep_time));
                 }
             }
         }
